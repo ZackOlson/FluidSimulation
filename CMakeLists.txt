@@ -24,3 +24,4 @@ add_subdirectory(ew)
 #Examples
 add_subdirectory(examples/helloWorld)
 add_subdirectory(examples/1_Projectile)
+add_subdirectory(examples/Final)
