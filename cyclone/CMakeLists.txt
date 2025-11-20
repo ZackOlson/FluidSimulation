@@ -4,7 +4,8 @@ set(cyclone_sources
 	 "core.cpp"
 		"particle.cpp"
 		"particleforceregistry.cpp"
-
+		fluidsim.cpp
+		particlespring.cpp
 
 )
 set(cyclone_headers
@@ -14,8 +15,8 @@ set(cyclone_headers
 	"particle.h"
 	"particleforcegenerator.h"
 	"particleforceregistry.h"
-		particlespring.cpp
 		particlespring.h
+		fluidsim.h
 )
 
 set(cyclone_INC_DIR

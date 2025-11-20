@@ -15,3 +15,4 @@
 #include "particle.h"
 #include "particleforcegenerator.h"
 #include "particlespring.h"
+#include "fluidparticle.h"
