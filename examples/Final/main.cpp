@@ -17,10 +17,11 @@
 #include <cyclone/cyclone.h>
 #include <imgui.h>
 #include <rlImGui.h>
-#include <bits/stl_algo.h>
+//#include <bits/stl_algo.h>
 
 #include <cyclone/particle.h>
 #include <ew/camera.h>
+#include <cyclone/fluidsim.h>
 
 struct AppSettings {
     float spinSpeed = 2.0f; // Radians per second
@@ -74,6 +75,41 @@ int main() {
     _appSettings.speed = sphereSpeed;
     _appSettings.damping = sphereDamping;
 
+    // FLUID
+    // Number of particles and where (random numbers at the moment)
+    const int NUM_PARTICLES = 500;
+    const float SPAWN_RADIUS = 8.0f;
+
+    std::vector<cyclone::Particle> fluidParticles;
+    fluidParticles.resize(NUM_PARTICLES);
+
+    // Spawn particles in a cube
+    for (int i = 0; i < NUM_PARTICLES; i++) {
+        float x = ((float)rand() / RAND_MAX - 0.5f) * SPAWN_RADIUS;
+        float y = ((float)rand() / RAND_MAX) * SPAWN_RADIUS + 1.0f;
+        float z = ((float)rand() / RAND_MAX - 0.5f) * SPAWN_RADIUS;
+
+        // Correct postion
+        x += 5.0f;
+        y += 5.0f;
+        z += 5.0f;
+
+        fluidParticles[i].setPosition(x, y, z);
+        fluidParticles[i].setVelocity(0, 0, 0);
+        fluidParticles[i].setAcceleration(0, -9.8f, 0);
+        fluidParticles[i].setDamping(0.98f);
+        fluidParticles[i].setMass(1.0f);
+    }
+
+    int gridW = 30;
+    int gridH = 30;
+    int gridD = 30;
+    float cellSize = 0.7f;
+    float density = 1000.0f;
+
+    cyclone::FluidSim fluidSim(gridW, gridH, gridD, cellSize, density);
+
+
     while (!WindowShouldClose()) {
         //Seconds between previous frame and this one
         float deltaTime = GetFrameTime();
@@ -90,16 +126,9 @@ int main() {
             ew::UpdateFlyCamera(&camera, deltaTime);
         }
 
-        // Move?
+        // Running?
         if (sphereMove) {
-            // integrate?
-            mainProj->integrate((float)deltaTime);
-            spherePosition = mainProj->getPosition();
-
-            // Check to see if sphere should stop moving
-            if (spherePosition.y < 0.0f) {
-            sphereMove = false;
-            }
+            fluidSim.step(fluidParticles, deltaTime);
         }
 
         //Model.transform allows us to modify the model (local->world) matrix directly
@@ -115,15 +144,11 @@ int main() {
         ClearBackground(SKYBLUE);
 
         //Position is zeroed because Model.transform is handling the position for us
-        DrawModel(sphereModel, { 0,0,0 }, 1.0f, RED);
-        DrawModelWires(sphereModel, { 0,0,0 }, 1.0f, BLACK);
+        for (auto& p : fluidParticles) {
+            Vector3 pos = { p.getPosition().x, p.getPosition().y, p.getPosition().z };
 
-        // for loop of all the baby spheres in collection
-        if (sphereMove) {
-            for (auto i = 0; i < particleTrail.size(); i++) {
-                sphereModel.transform = MatrixTranslate(particleTrail[i].getPosition().x, particleTrail[i].getPosition().y, particleTrail[i].getPosition().z);
-                DrawModel(sphereModel, { 0,0,0 }, 0.25f, GRAY);
-            }
+            DrawSphere(pos, 0.1f, BLUE);
+            DrawSphereWires(pos, 0.1f, 8, 8, DARKBLUE);
         }
 
         DrawGrid(100, 1.0f);

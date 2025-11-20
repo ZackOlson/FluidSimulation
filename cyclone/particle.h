@@ -14,8 +14,8 @@ namespace cyclone {
     public:
 
         // Helpers
-        Vector3 getPosition() { return position; };
-        Vector3 getVelocity() { return velocity; };
+        Vector3 getPosition() const { return position; };
+        Vector3 getVelocity() const { return velocity; };
         Vector3 getAcceleration() { return acceleration; };
         real getDamping() { return damping; };
         real getMass() { return inverseMass; };
