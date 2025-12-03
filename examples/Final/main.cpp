@@ -53,6 +53,12 @@ int main() {
     cyclone::Vector3 spherePosition(0.0f, 0.0f, 0.0f);
     Model sphereModel = LoadModelFromMesh(GenMeshSphere(1, 12, 6)); // looks like a beach ball so I'm keeping it
 
+    // Billboard texture for particles
+    Image circleImg = GenImageColor(32, 32, BLANK);
+    ImageDrawCircle(&circleImg, 16, 16, 16, WHITE);
+    Texture2D circleTexture = LoadTextureFromImage(circleImg);
+    UnloadImage(circleImg);
+
     // setting values
     Vector3 sphereAcceleration = { 0.0f, -9.8f, 0.0f };
     float sphereSpeed = 10.0f;
@@ -77,7 +83,7 @@ int main() {
 
     // FLUID
     // Number of particles and where (random numbers at the moment)
-    const int NUM_PARTICLES = 500;
+    const int NUM_PARTICLES = 5000;
     const float SPAWN_RADIUS = 8.0f;
 
     std::vector<cyclone::Particle> fluidParticles;
@@ -147,8 +153,8 @@ int main() {
         for (auto& p : fluidParticles) {
             Vector3 pos = { p.getPosition().x, p.getPosition().y, p.getPosition().z };
 
-            DrawSphere(pos, 0.1f, BLUE);
-            DrawSphereWires(pos, 0.1f, 8, 8, DARKBLUE);
+            float size = 0.2f; // diameter of the particle
+            DrawBillboard(camera, circleTexture, pos, size, BLUE);
         }
 
         DrawGrid(100, 1.0f);
@@ -261,6 +267,7 @@ int main() {
 
         EndDrawing();
     }
+    UnloadTexture(circleTexture);
     UnloadModel(sphereModel);
     CloseWindow();
 }
