@@ -304,18 +304,51 @@ void FluidSim::gridToParticles(std::vector<Particle>& particles, real flipRatio)
 }
 
 void FluidSim::advectParticles(std::vector<Particle>& particles, real dt) {
+    /*
     for (auto& p : particles) 
     {
+
         // Euler advection
         Vector3 pos = p.getPosition();
         Vector3 vel = p.getVelocity();
         pos += vel * dt;
         p.setPosition(pos);
         handleParticleCollision(p);
+    } */
+
+
+    Vector3 tempForce = Vector3(0, 0, 0);
+    real stiffness = 1.0f;
+
+    // Trying to see if particles can check distance
+    for (int i = 0; i < particles.size(); i++) {
+        for (int j = 0; j < particles.size(); j++) {
+            if (j != i) { // skip self
+
+                Vector3 direction = Vector3(particles[i].getPosition() - particles[j].getPosition());
+                real distance = direction.magnitude();
+
+                float restSize = 1.0f;
+                if (distance < restSize) {
+                    tempForce += direction.unit() * stiffness * (restSize - distance);
+                }
+
+            }
+        }
+
+        // Give force!
+        Vector3 force = tempForce * dt;
+        Vector3 pos = particles[i].getPosition();
+        pos += force * dt;
+        particles[i].setPosition(pos);
+        handleParticleCollision(particles[i]);
+
+
     }
+
 }
 
-// Handlees particle collisions (I think, althouhg im not sure if i got it working properly)
+// Handles particle collisions (I think, although im not sure if i got it working properly)
 void FluidSim::handleParticleCollision(Particle& p)
 {
     Vector3 pos = p.getPosition();
