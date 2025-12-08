@@ -133,112 +133,147 @@ void FluidSim::solvePressure(real dt)
 {
     int N = gridWidth * gridHeight * gridDepth;
 
+    const real h = cellSize;
+    const real invh = invCellSize;
+    const real invh2 = invh * invh; 
+
+
     std::vector<real> div(N, 0.0f);
-    std::vector<real> pnew(N, 0.0f);
 
-    // divergence
-    for (int z = 1; z < gridDepth - 1; ++z) 
-    {
-        for (int y = 1; y < gridHeight - 1; ++y) 
-        {
-            for (int x = 1; x < gridWidth - 1; ++x) 
+    for (int z = 1; z < gridDepth - 1; ++z)
+        for (int y = 1; y < gridHeight - 1; ++y)
+            for (int x = 1; x < gridWidth - 1; ++x)
             {
-
                 int k = idx3(x, y, z);
 
-                real du_dx = (u[idx3(x + 1, y, z)] - u[idx3(x - 1, y, z)])
-                    * 0.5f * invCellSize;
+                real du_dx = (u[idx3(x + 1, y, z)] - u[idx3(x - 1, y, z)]) * 0.5f * invh;
+                real dv_dy = (v[idx3(x, y + 1, z)] - v[idx3(x, y - 1, z)]) * 0.5f * invh;
+                real dw_dz = (w[idx3(x, y, z + 1)] - w[idx3(x, y, z - 1)]) * 0.5f * invh;
 
-                real dv_dy = (v[idx3(x, y + 1, z)] - v[idx3(x, y - 1, z)])
-                    * 0.5f * invCellSize;
-
-                real dw_dz = (w[idx3(x, y, z + 1)] - w[idx3(x, y, z - 1)])
-                    * 0.5f * invCellSize;
-
-                div[k] = du_dx + dv_dy + dw_dz;
+                div[k] = (du_dx + dv_dy + dw_dz) / dt;
             }
-        }
-    }
 
-    float h2inv = 1.0f / (invCellSize * invCellSize);
 
-    // Jacobi iterations
-    for (int it = 0; it < pressureIterations; ++it)
+    std::fill(pressure.begin(), pressure.end(), 0.0f);
+
+
+    std::vector<real> r = div;
+    std::vector<real> z(N, 0.0f);
+    std::vector<real> p(N, 0.0f);
+    std::vector<real> Ap(N, 0.0f);
+
+    const real M = (h * h) / 6.0f;
+    for (int i = 0; i < N; ++i) z[i] = r[i] * M;
+    p = z;
+
+    real rzOld = 0.0f;
+    for (int i = 0; i < N; ++i) rzOld += r[i] * z[i];
+
+
+    const int maxIt = 60;
+    for (int it = 0; it < maxIt; ++it)
     {
-        for (int z = 1; z < gridDepth - 1; ++z) 
-        {
-            for (int y = 1; y < gridHeight - 1; ++y) 
-            {
-                for (int x = 1; x < gridWidth - 1; ++x) 
+
+        for (int zc = 1; zc < gridDepth - 1; ++zc)
+            for (int yc = 1; yc < gridHeight - 1; ++yc)
+                for (int xc = 1; xc < gridWidth - 1; ++xc)
                 {
+                    int k = idx3(xc, yc, zc);
 
-                    int k = idx3(x, y, z);
+                    auto sample = [&](int X, int Y, int Z)
+                        {
+                            // If out of bounds, return center
+                            if (X < 0 || X >= gridWidth ||
+                                Y < 0 || Y >= gridHeight ||
+                                Z < 0 || Z >= gridDepth)
+                                return p[k];
+                            return p[idx3(X, Y, Z)];
+                        };
 
-                    real sumNei =
-                        pressure[idx3(x - 1, y, z)] +
-                        pressure[idx3(x + 1, y, z)] +
-                        pressure[idx3(x, y - 1, z)] +
-                        pressure[idx3(x, y + 1, z)] +
-                        pressure[idx3(x, y, z - 1)] +
-                        pressure[idx3(x, y, z + 1)];
+                    real pl = sample(xc - 1, yc, zc);
+                    real pr = sample(xc + 1, yc, zc);
+                    real pb = sample(xc, yc - 1, zc);
+                    real pt = sample(xc, yc + 1, zc);
+                    real pd = sample(xc, yc, zc - 1);
+                    real pu = sample(xc, yc, zc + 1);
 
-                    pnew[k] = (sumNei - div[k] * h2inv) / 6.0f;
+                    Ap[k] = invh2 * (pl + pr + pb + pt + pd + pu - 6.0f * p[k]);
                 }
-            }
-        }
 
-        // swap pnew into pressure
-        for (int i = 0; i < N; ++i)
-            pressure[i] = pnew[i];
+        // Get alpha
+        real denom = 0;
+        for (int i = 0; i < N; ++i) denom += p[i] * Ap[i];
+        if (fabs(denom) < 1e-20f) break;
+
+        real alpha = rzOld / denom;
+
+        for (int i = 0; i < N; ++i) pressure[i] += alpha * p[i];
+
+        for (int i = 0; i < N; ++i) r[i] -= alpha * Ap[i];
+
+        // Check convergence
+        real rr = 0;
+        for (int i = 0; i < N; i++) rr += r[i] * r[i];
+        if (rr < 1e-10f) break;
+
+        for (int i = 0; i < N; ++i) z[i] = r[i] * M;
+
+        real rzNew = 0.0f;
+        for (int i = 0; i < N; ++i) rzNew += r[i] * z[i];
+
+        real beta = rzNew / rzOld;
+        rzOld = rzNew;
+
+        for (int i = 0; i < N; ++i) p[i] = z[i] + beta * p[i];
     }
 
-    // Subtract pressure
-    for (int z = 1; z < gridDepth - 1; ++z) 
-    {
-        for (int y = 1; y < gridHeight - 1; ++y) 
-        {
-            for (int x = 1; x < gridWidth - 1; ++x) 
-            {
-
-                int k = idx3(x, y, z);
-
-                real gradPx = (pressure[idx3(x + 1, y, z)] -
-                    pressure[idx3(x - 1, y, z)]) * 0.5f * invCellSize;
-
-                real gradPy = (pressure[idx3(x, y + 1, z)] -
-                    pressure[idx3(x, y - 1, z)]) * 0.5f * invCellSize;
-
-                real gradPz = (pressure[idx3(x, y, z + 1)] -
-                    pressure[idx3(x, y, z - 1)]) * 0.5f * invCellSize;
-
-                u[k] -= gradPx;
-                v[k] -= gradPy;
-                w[k] -= gradPz;
-            }
-        }
-    }
-
-    // boundary
-    for (int z = 0; z < gridDepth; ++z)
-        for (int x = 0; x < gridWidth; ++x) 
-        {
-            v[idx3(x, 0, z)] = 0;     v[idx3(x, gridHeight - 1, z)] = 0;
-            u[idx3(x, 0, z)] = 0;     u[idx3(x, gridHeight - 1, z)] = 0;
-            w[idx3(x, 0, z)] = 0;     w[idx3(x, gridHeight - 1, z)] = 0;
-        }
-
-    for (int z = 0; z < gridDepth; ++z)
-        for (int y = 0; y < gridHeight; ++y) 
-        {
-            u[idx3(0, y, z)] = 0;     u[idx3(gridWidth - 1, y, z)] = 0;
-            v[idx3(0, y, z)] = 0;     v[idx3(gridWidth - 1, y, z)] = 0;
-            w[idx3(0, y, z)] = 0;     w[idx3(gridWidth - 1, y, z)] = 0;
-        }
-
+    // X walls
     for (int y = 0; y < gridHeight; ++y)
-        for (int x = 0; x < gridWidth; ++x) 
+        for (int z = 0; z < gridDepth; ++z)
         {
-            w[idx3(x, y, 0)] = 0;     w[idx3(x, y, gridDepth - 1)] = 0;
+            pressure[idx3(0, y, z)] = pressure[idx3(1, y, z)];
+            pressure[idx3(gridWidth - 1, y, z)] = pressure[idx3(gridWidth - 2, y, z)];
+        }
+    // Y walls
+    for (int x = 0; x < gridWidth; ++x)
+        for (int z = 0; z < gridDepth; ++z)
+        {
+            pressure[idx3(x, 0, z)] = pressure[idx3(x, 1, z)];
+            pressure[idx3(x, gridHeight - 1, z)] = pressure[idx3(x, gridHeight - 2, z)];
+        }
+    // Z walls
+    for (int x = 0; x < gridWidth; ++x)
+        for (int y = 0; y < gridHeight; ++y)
+        {
+            pressure[idx3(x, y, 0)] = pressure[idx3(x, y, 1)];
+            pressure[idx3(x, y, gridDepth - 1)] = pressure[idx3(x, y, gridDepth - 2)];
+        }
+
+    for (int zc = 1; zc < gridDepth - 1; ++zc)
+        for (int yc = 1; yc < gridHeight - 1; ++yc)
+            for (int xc = 1; xc < gridWidth - 1; ++xc)
+            {
+                int k = idx3(xc, yc, zc);
+                u[k] -= (pressure[idx3(xc + 1, yc, zc)] - pressure[idx3(xc - 1, yc, zc)]) * 0.5f * invh;
+                v[k] -= (pressure[idx3(xc, yc + 1, zc)] - pressure[idx3(xc, yc - 1, zc)]) * 0.5f * invh;
+                w[k] -= (pressure[idx3(xc, yc, zc + 1)] - pressure[idx3(xc, yc, zc - 1)]) * 0.5f * invh;
+            }
+
+    for (int z = 0; z < gridDepth; ++z)
+        for (int x = 0; x < gridWidth; ++x) {
+            v[idx3(x, 0, z)] = v[idx3(x, gridHeight - 1, z)] = 0;
+            u[idx3(x, 0, z)] = u[idx3(x, gridHeight - 1, z)] = 0;
+            w[idx3(x, 0, z)] = w[idx3(x, gridHeight - 1, z)] = 0;
+        }
+    for (int z = 0; z < gridDepth; ++z)
+        for (int y = 0; y < gridHeight; ++y) {
+            u[idx3(0, y, z)] = u[idx3(gridWidth - 1, y, z)] = 0;
+            v[idx3(0, y, z)] = v[idx3(gridWidth - 1, y, z)] = 0;
+            w[idx3(0, y, z)] = w[idx3(gridWidth - 1, y, z)] = 0;
+        }
+    for (int y = 0; y < gridHeight; ++y)
+        for (int x = 0; x < gridWidth; ++x) {
+            w[idx3(x, y, 0)] = w[idx3(x, y, gridDepth - 1)] = 0;
         }
 }
 
