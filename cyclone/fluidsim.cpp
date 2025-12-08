@@ -339,49 +339,99 @@ void FluidSim::gridToParticles(std::vector<Particle>& particles, real flipRatio)
 }
 
 void FluidSim::advectParticles(std::vector<Particle>& particles, real dt) {
-    /*
-    for (auto& p : particles) 
-    {
+    // Build cell lists
+    int nCells = gridWidth * gridHeight * gridDepth;
 
-        // Euler advection
-        Vector3 pos = p.getPosition();
-        Vector3 vel = p.getVelocity();
-        pos += vel * dt;
-        p.setPosition(pos);
-        handleParticleCollision(p);
-    } */
+    std::vector<std::vector<int>> cellParticles;
+    cellParticles.resize(nCells);
 
+    auto cellIndexFromCoords = [&](int x, int y, int z)->int {
+        return x + y * gridWidth + z * gridWidth * gridHeight;
+        };
 
+    // clamp cell coords
+    auto clampCell = [&](int& c, int maxC) {
+        if (c < 0) c = 0;
+        else if (c >= maxC) c = maxC - 1;
+        };
 
-    real stiffness = 1.0f;
+    // Insert particles into cells
+    const int P = (int)particles.size();
+    for (int i = 0; i < P; ++i) {
+        Vector3 pos = particles[i].getPosition();
 
-    // Trying to see if particles can check distance
-    for (int i = 0; i < particles.size(); i++) {
-        Vector3 tempForce = Vector3(0, 0, 0);
-        for (int j = 0; j < particles.size(); j++) {
-            if (j != i) { // skip self
+        int cx = (int)floor(pos.x * invCellSize);
+        int cy = (int)floor(pos.y * invCellSize);
+        int cz = (int)floor(pos.z * invCellSize);
 
-                Vector3 direction = Vector3(particles[i].getPosition() - particles[j].getPosition());
-                real distance = direction.magnitude();
+        clampCell(cx, gridWidth);
+        clampCell(cy, gridHeight);
+        clampCell(cz, gridDepth);
 
-                float restSize = 1.0f;
-                if (distance < restSize) {
-                    tempForce += direction.unit() * stiffness * (restSize - distance);
+        int idx = cellIndexFromCoords(cx, cy, cz);
+        cellParticles[idx].push_back(i);
+    }
+
+    // For each particle, test only neighboring cells
+    const real restSize = 1.0f;
+    const real stiffness = 1.0f;
+    const real invDt = (dt > 0.0f) ? 1.0f / dt : 0.0f;
+
+    for (int i = 0; i < P; ++i) {
+        Vector3 pos_i = particles[i].getPosition();
+
+        int cx = (int)floor(pos_i.x * invCellSize);
+        int cy = (int)floor(pos_i.y * invCellSize);
+        int cz = (int)floor(pos_i.z * invCellSize);
+
+        // neighbor cell bounds (clamped)
+        int minx = cx - 1, miny = cy - 1, minz = cz - 1;
+        int maxx = cx + 1, maxy = cy + 1, maxz = cz + 1;
+        if (minx < 0) minx = 0;
+        if (miny < 0) miny = 0;
+        if (minz < 0) minz = 0;
+        if (maxx >= gridWidth) maxx = gridWidth - 1;
+        if (maxy >= gridHeight) maxy = gridHeight - 1;
+        if (maxz >= gridDepth) maxz = gridDepth - 1;
+
+        Vector3 tempForce(0, 0, 0);
+
+        for (int z = minz; z <= maxz; ++z) {
+            for (int y = miny; y <= maxy; ++y) {
+                for (int x = minx; x <= maxx; ++x) {
+                    int cellIdx = cellIndexFromCoords(x, y, z);
+                    const auto& list = cellParticles[cellIdx];
+                    for (int id : list) {
+                        if (id == i) continue;
+                        Vector3 pos_j = particles[id].getPosition();
+                        Vector3 dir = pos_i - pos_j;
+                        real dist = dir.magnitude();
+                        if (dist <= 0.0001f) continue;
+                        if (dist < restSize) {
+                            tempForce += dir.unit() * stiffness * (restSize - dist);
+                        }
+                    }
                 }
-
             }
         }
 
-        // Give force!
-        Vector3 force = tempForce * dt;
-        Vector3 pos = particles[i].getPosition();
-        pos += force * gravity * dt;
-        particles[i].setPosition(pos);
+
+        Vector3 vel = particles[i].getVelocity();
+
+        Vector3 accel = tempForce * (1.0f / particles[i].getMass()); // mass is 1.0f by your init, but keep general
+        vel += accel * dt;
+
+        vel.y += gravity * dt;
+
+        // Update position from velocity
+        Vector3 newPos = particles[i].getPosition() + vel * dt;
+
+        particles[i].setVelocity(vel);
+        particles[i].setPosition(newPos);
+
+        // handle walls
         handleParticleCollision(particles[i]);
-
-
     }
-
 }
 
 // Handles particle collisions (I think, although im not sure if i got it working properly)
