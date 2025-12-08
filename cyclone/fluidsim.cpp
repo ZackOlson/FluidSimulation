@@ -317,11 +317,12 @@ void FluidSim::advectParticles(std::vector<Particle>& particles, real dt) {
     } */
 
 
-    Vector3 tempForce = Vector3(0, 0, 0);
+
     real stiffness = 1.0f;
 
     // Trying to see if particles can check distance
     for (int i = 0; i < particles.size(); i++) {
+        Vector3 tempForce = Vector3(0, 0, 0);
         for (int j = 0; j < particles.size(); j++) {
             if (j != i) { // skip self
 
@@ -339,7 +340,7 @@ void FluidSim::advectParticles(std::vector<Particle>& particles, real dt) {
         // Give force!
         Vector3 force = tempForce * dt;
         Vector3 pos = particles[i].getPosition();
-        pos += force * dt;
+        pos += force * gravity * dt;
         particles[i].setPosition(pos);
         handleParticleCollision(particles[i]);
 
@@ -380,7 +381,7 @@ void FluidSim::step(std::vector<Particle>& particles, real dt) {
     particlesToGrid(particles);
 
     // Apply forces to grid
-    applyGridForces(dt);
+    //applyGridForces(dt); TEST
 
     // Save grid
     saveGridVelocities();

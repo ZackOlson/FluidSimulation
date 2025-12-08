@@ -47,7 +47,7 @@ namespace cyclone {
         std::vector<real> pressure;
 
         // parameters
-        real gravity{ -400.0f };
+        real gravity{ -9.0f };
         real density;
         int pressureIterations{ 30 };
         // bounciness
