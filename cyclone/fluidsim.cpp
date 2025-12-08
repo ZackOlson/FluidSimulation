@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstring>
 #include <iostream>
+#include <map>
 
 using namespace cyclone;
 
@@ -355,6 +356,7 @@ void FluidSim::advectParticles(std::vector<Particle>& particles, real dt) {
         else if (c >= maxC) c = maxC - 1;
         };
 
+<<<<<<< HEAD
     // Insert particles into cells
     const int P = (int)particles.size();
     for (int i = 0; i < P; ++i) {
@@ -410,6 +412,52 @@ void FluidSim::advectParticles(std::vector<Particle>& particles, real dt) {
                         if (dist < restSize) {
                             tempForce += dir.unit() * stiffness * (restSize - dist);
                         }
+=======
+    real stiffness = 1.0f;
+    std::map<Vector3, std::vector<Particle>> grid;
+
+
+    for (auto& p : particles) {
+        Vector3 cellKey = Vector3(p.getPosition().x / cellSize, p.getPosition().y / cellSize, p.getPosition().z / cellSize);
+
+        if (!grid.count(cellKey)) {
+            grid[cellKey].push_back(p);
+        }
+    }
+/*
+    int total_in_grid = 0;
+    for (auto& cell : grid) {
+        total_in_grid += cell.second.size();
+    }
+    std::cout << "Particles in scene: " << particles.size() << std::endl;
+    std::cout << "Particles in grid: " << total_in_grid << std::endl; */
+
+    // Trying to see if particles can check distance
+    for (int i = 0; i < particles.size(); i++) {
+        Vector3 tempForce = Vector3(0, 0, 0);
+
+        // Find neighbors
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    Vector3 checkCell = Vector3(particles[i].getPosition().x + dx, particles[i].getPosition().y + dy, particles[i].getPosition().z + dz);
+
+                    // Find neighbors
+                    if (grid.find(checkCell) != grid.end()) {
+                        for (auto& j : grid[checkCell]) {
+                            if (j.getPosition() != particles[i].getPosition()) {
+                                Vector3 direction = Vector3(particles[i].getPosition() - j.getPosition());
+                                real distance = direction.magnitude();
+
+                                float restSize = 1.0f;
+                                if (distance < restSize) {
+                                    tempForce += direction.unit() * stiffness * (restSize - distance);
+
+                                }
+                            }
+                        }
+
+>>>>>>> 41a3c70d873ef8b085807b6b75ac4f931574a4fe
                     }
                 }
             }
@@ -431,6 +479,10 @@ void FluidSim::advectParticles(std::vector<Particle>& particles, real dt) {
 
         // handle walls
         handleParticleCollision(particles[i]);
+<<<<<<< HEAD
+=======
+
+>>>>>>> 41a3c70d873ef8b085807b6b75ac4f931574a4fe
     }
 }
 
