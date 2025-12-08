@@ -69,6 +69,26 @@ int main() {
 
     std::vector<cyclone::Particle> fluidParticles;
 
+    fluidParticles.resize(NUM_PARTICLES);
+
+    // Spawn particles in a cube
+    for (int i = 0; i < NUM_PARTICLES; i++) {
+        float x = ((float)rand() / RAND_MAX - 0.5f) * SPAWN_RADIUS;
+        float y = ((float)rand() / RAND_MAX) * SPAWN_RADIUS + 1.0f;
+        float z = ((float)rand() / RAND_MAX - 0.5f) * SPAWN_RADIUS;
+
+        // Correct position
+        x += 5.0f;
+        y += 5.0f;
+        z += 5.0f;
+
+        fluidParticles[i].setPosition(x, y, z);
+        fluidParticles[i].setVelocity(0, 0, 0);
+        fluidParticles[i].setAcceleration(0, -9.8f, 0);
+        fluidParticles[i].setDamping(0.98f);
+        fluidParticles[i].setMass(1.0f);
+    }
+
     int gridW = 30;
     int gridH = 30;
     int gridD = 30;
@@ -83,7 +103,7 @@ int main() {
     _appSettings.cellSize = cellSize;
     _appSettings.density = density;
 
-    cyclone::FluidSim fluidSim(_appSettings.gridWidth, _appSettings.gridHeight, _appSettings.gridDepth, _appSettings.cellSize, _appSettings.density);
+    cyclone::FluidSim fluidSim(gridW, gridH, gridD, cellSize, density);
 
 
     while (!WindowShouldClose()) {
