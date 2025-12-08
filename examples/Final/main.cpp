@@ -201,11 +201,6 @@ int main() {
         if (ImGui::Button("Apply", ImVec2(100, 20))) {
             applied = true;
         }
-        // Speed
-        //ImGui::SliderFloat("Speed", &_appSettings.speed, 0.0f, 60.0f);
-        // Acceleration
-        //ImGui::InputFloat3("Acceleration", (float*)&_appSettings.acceleration);
-        // Start
         if (ImGui::Button("Start!", ImVec2(100, 20))) {
             sphereMove = true; // start sim
         }
