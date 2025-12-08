@@ -122,32 +122,6 @@ int main() {
             ew::UpdateFlyCamera(&camera, deltaTime);
         }
 
-        if (applied) {
-            fluidParticles.resize(NUM_PARTICLES);
-
-            // Spawn particles in a cube
-            for (int i = 0; i < NUM_PARTICLES; i++) {
-                float x = ((float)rand() / RAND_MAX - 0.5f) * SPAWN_RADIUS;
-                float y = ((float)rand() / RAND_MAX) * SPAWN_RADIUS + 1.0f;
-                float z = ((float)rand() / RAND_MAX - 0.5f) * SPAWN_RADIUS;
-
-                // Correct position
-                x += 5.0f;
-                y += 5.0f;
-                z += 5.0f;
-
-                fluidParticles[i].setPosition(x, y, z);
-                fluidParticles[i].setVelocity(0, 0, 0);
-                fluidParticles[i].setAcceleration(0, -9.8f, 0);
-                fluidParticles[i].setDamping(0.98f);
-                fluidParticles[i].setMass(1.0f);
-            }
-
-            // Loops and restarts each frame
-            // Need a separate function for starting and for creating?
-            cyclone::FluidSim fluidSim(_appSettings.gridWidth, _appSettings.gridHeight, _appSettings.gridDepth, _appSettings.cellSize, _appSettings.density);
-        }
-
         // Running?
         if (sphereMove) {
             fluidSim.step(fluidParticles, deltaTime);
@@ -199,7 +173,32 @@ int main() {
         // Density
         ImGui::SliderFloat("Density", &_appSettings.density, 10.0f, 5000.0f);
         if (ImGui::Button("Apply", ImVec2(100, 20))) {
-            applied = true;
+            // recreate particle vector
+            fluidParticles.clear();
+            fluidParticles.resize(_appSettings.numParticles);
+
+            // spawn particles
+            for (int i = 0; i < _appSettings.numParticles; ++i) {
+                float x = ((float)rand() / RAND_MAX - 0.5f) * _appSettings.spawnRad;
+                float y = ((float)rand() / RAND_MAX) * _appSettings.spawnRad * 0.5f + 1.0f; // lower spawn Y
+                float z = ((float)rand() / RAND_MAX - 0.5f) * _appSettings.spawnRad;
+
+                // place
+                fluidParticles[i].setPosition(x, y, z);
+                fluidParticles[i].setVelocity(0, 0, 0);
+                fluidParticles[i].setAcceleration(0, -9.8f, 0);
+                fluidParticles[i].setDamping(0.98f);
+                fluidParticles[i].setMass(1.0f);
+            }
+
+            // Recreate fluid sim
+            fluidSim = cyclone::FluidSim(_appSettings.gridWidth,
+                _appSettings.gridHeight,
+                _appSettings.gridDepth,
+                _appSettings.cellSize,
+                _appSettings.density);
+
+            applied = false;
         }
         if (ImGui::Button("Start!", ImVec2(100, 20))) {
             sphereMove = true; // start sim

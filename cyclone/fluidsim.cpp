@@ -475,7 +475,7 @@ void FluidSim::step(std::vector<Particle>& particles, real dt) {
     solvePressure(dt);
 
     // convert grid info to particles (PIC/FLIP combo, mostly flip tho)
-    real flipRatio = 0.95f;
+    real flipRatio = 0.05f;
     gridToParticles(particles, flipRatio);
 
     // Advect particles
